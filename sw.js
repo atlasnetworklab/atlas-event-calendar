@@ -1,11 +1,12 @@
-const CACHE_NAME="atlas-event-calendar-v6";
+const CACHE_NAME="atlas-event-calendar-v7";
 const ASSETS=[
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./icon.svg",
+  "./icon-192.png",
+  "./icon-180.png",
   "./assets/atlas-logo.png",
   "./assets/kk-star.png",
   "./assets/moment-handshake.jpg",
