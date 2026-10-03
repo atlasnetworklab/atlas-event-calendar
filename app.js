@@ -96,7 +96,8 @@ function setEvents(list){
 }
 setEvents(getEventData());
 let selectedMonthIndex=0;
-let currentView=window.matchMedia("(max-width: 760px)").matches?"list":"month";
+let currentView="month";
+const isPhone=()=>window.matchMedia("(max-width: 760px)").matches;
 let deferredInstallPrompt=null;
 
 const content=document.getElementById("calendarContent");
@@ -126,6 +127,28 @@ function timeLabel(event){
   const range=event.end_time?`${event.start_time} to ${event.end_time}`:event.start_time;
   return event.time_zone?`${range} ${event.time_zone}`:range;
 }
+const CATEGORY_ICONS={
+  WEBINAR:["M7.4 9a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0","M5.6 5.6a4.8 4.8 0 0 0 0 6.8","M12.4 5.6a4.8 4.8 0 0 1 0 6.8","M3.3 3.3a8 8 0 0 0 0 11.4","M14.7 3.3a8 8 0 0 1 0 11.4"],
+  FILMING:["M2 5.5h9v7H2z","M11 8l5-2.5v7L11 10z"],
+  EVENT:["M9 16s5-4.6 5-8.5a5 5 0 0 0-10 0C4 11.4 9 16 9 16z","M7.4 7.5a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"],
+  PODCAST:["M9 2a2.2 2.2 0 0 0-2.2 2.2v4.3a2.2 2.2 0 0 0 4.4 0V4.2A2.2 2.2 0 0 0 9 2z","M4.5 8.5a4.5 4.5 0 0 0 9 0","M9 13v3"],
+  INTERVIEW:["M3 3.5h12v8H8l-3.5 3v-3H3z"],
+  SPEAKING:["M3 7v4h2.5l6 3.5v-11L5.5 7z","M14 7.2a3 3 0 0 1 0 3.6"]
+};
+const DEFAULT_ICON=["M3 4.5h12v11H3z","M3 8h12","M6 2.5v3","M12 2.5v3"];
+function makeCategoryIcon(event){
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("viewBox","0 0 18 18");
+  svg.setAttribute("aria-hidden","true");
+  svg.setAttribute("class","cat-icon");
+  svg.style.setProperty("--category",isGlobalChamber(event)?"#f26a21":colorFor(event.category));
+  (CATEGORY_ICONS[event.category]||DEFAULT_ICON).forEach(d=>{
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("d",d);
+    svg.append(path);
+  });
+  return svg;
+}
 function colorFor(category){ return CATEGORY_COLORS[category]||"#55706d"; }
 function filterLabel(category){ return category==="GLOBAL CHAMBER"?"Global Chamber":category[0]+category.slice(1).toLowerCase(); }
 function isGlobalChamber(event){ return event.title.toLowerCase().startsWith("global chamber:"); }
@@ -151,6 +174,7 @@ function renderNextUp(){
   if(!next){
     kicker.append(el("span","","CHECK BACK SOON"));
     card.append(kicker,el("h2","","Nothing confirmed ahead"),el("div","next-meta","The six-month calendar remains available below."));
+    card.onclick=null;card.onkeydown=null;card.removeAttribute("role");card.removeAttribute("tabindex");
     return;
   }
   const start=parseDate(next.start_date);
@@ -158,11 +182,22 @@ function renderNextUp(){
   const days=Math.round((parseDate(next.start_date)-TODAY)/86400000);
   const underWay=start<TODAY&&end>=TODAY;
   const timing=underWay?"UNDER WAY":days===0?"TODAY":days===1?"TOMORROW":`${days} DAYS AWAY`;
-  kicker.append(el("span","",timing));
-  const title=el("h2","",next.title);
+  kicker.append(el("span","next-timing",timing));
+  const titleRow=el("div","next-title");
+  titleRow.append(makeCategoryIcon(next),el("h2","",next.title));
   const meta=el("div","next-meta");
   [dateLabel(next),timeLabel(next),next.place].filter(Boolean).forEach(value=>meta.append(el("span","",value)));
-  card.append(kicker,title,meta);
+  card.append(kicker,titleRow,meta);
+  if(next.link){
+    const anchor=el("a","next-link","Open the link");
+    anchor.href=next.link;anchor.target="_blank";anchor.rel="noreferrer";
+    anchor.addEventListener("click",click=>click.stopPropagation());
+    card.append(anchor);
+  }
+  card.tabIndex=0;
+  card.setAttribute("role","button");
+  card.onclick=()=>openDetails(next);
+  card.onkeydown=key=>{if(key.key==="Enter"||key.key===" "){key.preventDefault();openDetails(next);}};
 }
 
 function renderFilters(){
@@ -184,11 +219,11 @@ function renderFilters(){
   });
 }
 
-function makeEventButton(event,className){
+function makeEventButton(event,className,onClick){
   const button=el("button",className);
   button.type="button";
   button.style.setProperty("--category",isGlobalChamber(event)?"#f26a21":colorFor(event.category));
-  button.addEventListener("click",()=>openDetails(event));
+  button.addEventListener("click",click=>{if(onClick) onClick(click); else openDetails(event);});
   return button;
 }
 
@@ -249,11 +284,14 @@ function renderMonthView(){
         number.append(el("span","",String(date.getDate())));
         if(iso(date)===iso(TODAY)) number.append(el("span","today-label","TODAY"));
         cell.append(number);
-        filteredEvents().filter(event=>inEventRange(event,date)).forEach(event=>{
+        const dayEvents=filteredEvents().filter(event=>inEventRange(event,date));
+        const openDay=()=>{if(dayEvents.length===1) openDetails(dayEvents[0]); else openDayList(date,dayEvents);};
+        if(dayEvents.length) cell.addEventListener("click",()=>{if(isPhone()) openDay();});
+        dayEvents.forEach(event=>{
           const classes=["calendar-event"];
           if(event.start_date!==iso(date)) classes.push("continues-left");
           if((event.end_date||event.start_date)!==iso(date)) classes.push("continues-right");
-          const button=makeEventButton(event,classes.join(" "));
+          const button=makeEventButton(event,classes.join(" "),click=>{click.stopPropagation();if(isPhone()) openDay(); else openDetails(event);});
           button.append(el("span","",event.title),el("small","",event.status));
           if(hasFloorPresence(event,iso(date))) button.append(makeFloorTag());
           cell.append(button);
@@ -361,8 +399,9 @@ function openDetails(event){
   const layout=el("div","detail-layout");
   const main=el("div","detail-main");
   const side=el("aside","detail-side");
-  const category=el("p","detail-category",event.category);
+  const category=el("p","detail-category");
   category.style.setProperty("--category",colorFor(event.category));
+  category.append(makeCategoryIcon(event),el("span","",event.category));
   const title=el("h2","",event.title);title.id="detailTitle";
   const badges=el("div","detail-badges");
   badges.append(el("span","",event.status),el("span","",event.role));
@@ -375,17 +414,39 @@ function openDetails(event){
   addDetailRow(list,"Lives in",event.ops_tab);
   addDetailRow(list,"Reference",event.id);
   main.append(category,title,badges,list);
-  side.append(el("p","intel-kicker","BEHIND THE CURTAIN"),el("h3","","Team Notes"));
   const noteText=event.guidance||event.note||"";
-  const noteDisplay=event.guidance_from&&event.guidance_from.toLowerCase()==="kerim"?`KERIM: ${noteText}`:noteText;
-  const note=el("p",noteText?"intel-note":"intel-note intel-empty",noteDisplay||"No guidance has been added for this appearance yet.");
-  const source=el("div","intel-source");
-  const star=document.createElement("img");star.src="assets/kk-star.png";star.alt="";
-  source.append(star,el("span","","Shared with the Atlas team"));
-  side.append(note,source);
-  layout.append(main,side);
+  if(noteText){
+    const noteDisplay=event.guidance_from&&event.guidance_from.toLowerCase()==="kerim"?`KERIM: ${noteText}`:noteText;
+    const source=el("div","intel-source");
+    const star=document.createElement("img");star.src="assets/kk-star.png";star.alt="";
+    source.append(star,el("span","","Shared with the Atlas team"));
+    side.append(el("p","intel-kicker","BEHIND THE CURTAIN"),el("h3","","Team Notes"),el("p","intel-note",noteDisplay),source);
+    layout.append(main,side);
+  }else{
+    layout.classList.add("solo");
+    layout.append(main);
+  }
   detailContent.append(layout);
-  dialog.showModal();
+  if(!dialog.open) dialog.showModal();
+}
+
+function openDayList(date,list){
+  detailContent.replaceChildren();
+  const wrap=el("div","day-list");
+  wrap.append(el("p","detail-category day-list-kicker",date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()));
+  const heading=el("h2","",`${list.length} on this day`);heading.id="detailTitle";
+  wrap.append(heading);
+  list.forEach(event=>{
+    const row=makeEventButton(event,"day-list-item",()=>openDetails(event));
+    const copy=el("span","day-list-copy");
+    copy.append(el("strong","",event.title));
+    const details=[timeLabel(event),event.place,event.status].filter(Boolean).join(" · ");
+    if(details) copy.append(el("small","",details));
+    row.append(makeCategoryIcon(event),copy);
+    wrap.append(row);
+  });
+  detailContent.append(wrap);
+  if(!dialog.open) dialog.showModal();
 }
 
 document.querySelectorAll("[data-view]").forEach(button=>button.addEventListener("click",()=>{currentView=button.dataset.view;renderCalendar();requestAnimationFrame(()=>jumpToMonth(selectedMonthIndex,false));}));
