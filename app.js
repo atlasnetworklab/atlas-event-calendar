@@ -24,8 +24,8 @@ const BUILT_IN_EVENTS = [
   {id:"EC-021",category:"WEBINAR",title:"Global Chamber: What Comes Next. Preparing for the Next Decade of Global Business",role:"Speaking",status:"To be confirmed",start_date:"",end_date:"",start_time:"",end_time:"",time_zone:"",place:"Online",link:"",note:"Session 10 of 10.",layer:"Atlas",ops_tab:"Sheet: ATLAS GLOBAL CHAMBER <> Tab: KERIM WEBINARS",month_hint:"2027-07"}
 ];
 
-// THE ONE SPOT. Address of the read only events feed. Empty means: show the list above.
-const FEED_URL="";
+// THE ONE SPOT. Address of the read only events feed (tab EVENT CALENDAR in ATLAS RELATIONSHIPS). Empty means: show the list above.
+const FEED_URL="https://script.google.com/macros/s/AKfycbzbLSus02Tp40ltjdAGVT0ebqQ5blySyjVrz4MCj2s9bEXZKLpphOPAXWZdTi2Wue3U/exec?fn=events";
 const SAVED_KEY="atlas-event-calendar-saved-v1";
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
 const MONTH_RE=/^\d{4}-\d{2}$/;
