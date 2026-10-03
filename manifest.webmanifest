@@ -1,0 +1,12 @@
+{
+  "name": "Atlas Event Calendar",
+  "short_name": "Atlas Events",
+  "description": "Atlas appearances and events calendar for Kerim Kfuri.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f2",
+  "theme_color": "#08162d",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
